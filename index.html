@@ -3150,6 +3150,9 @@
             
             const isCardio = selectedCategory === 'Cardio';
             let workoutData = {};
+            // NEW (failed-save fix): build Today's entry here, but only add it to Today's list
+            // AFTER Google confirms the save — so a failed save never shows up as logged
+            let todayEntry = null;
             
             if (isCardio) {
                 // Collect cardio data
@@ -3191,13 +3194,13 @@
                 if (distance) displayParts.push(`${distance} mi`);
                 if (calories) displayParts.push(`${calories} cal`);
                 
-                todaysWorkouts.push({
+                todayEntry = {
                     exercise: selectedExercise,
                     cardio: true,
                     displayText: displayParts.join(', '),
                     zone2: zone2,
                     norwegian: isNorwegian
-                });
+                };
                 
             } else if (selectedExercise === PULLUP_EXERCISE) {
                 // NEW (Phase 5): Pull-Ups Unassisted — collect reps + grip for each row
@@ -3231,12 +3234,12 @@
                     bodyweight: bodyweight
                 };
 
-                todaysWorkouts.push({
+                todayEntry = {
                     exercise: selectedExercise,
                     sets: pullupSets.map(() => bodyweight.toString()), // keeps set counts working
                     displaySets: ['bodyweight'],                        // delete prompt reads "N sets (bodyweight)"
                     pullupSets: pullupSets
-                });
+                };
 
             } else {
                 // Weight training - check individual boxes FIRST, then quick entry
@@ -3314,11 +3317,11 @@
                 };
                 
                 const displaySets = sets.map(s => s === 'BW' ? '' : s).filter(s => s !== '');
-                todaysWorkouts.push({
+                todayEntry = {
                     exercise: selectedExercise,
                     sets: sets,
                     displaySets: displaySets.length > 0 ? displaySets : ['bodyweight']
-                });
+                };
             }
             
             showSubmitMessage('Saving to Google Sheets...', 'loading');
@@ -3326,6 +3329,9 @@
             try {
                 // Write to Google Sheets
                 await writeWorkoutToSheet(workoutData);
+                
+                // NEW (failed-save fix): Google confirmed the save — now add it to Today's list
+                todaysWorkouts.push(todayEntry);
                 
                 showSubmitMessage('✓ Saved successfully!', 'success');
                 
