@@ -396,6 +396,58 @@
             outline: none;
             border-color: var(--button-primary);
         }
+
+        /* NEW (Phase 5): Pull-Ups Unassisted rows — Set label | Reps | Grip | ✕ */
+        .pullup-row {
+            display: grid;
+            grid-template-columns: 60px 80px 1fr 50px;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .pullup-row span {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .pullup-row input,
+        .pullup-row select {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 10px 8px;
+            border: 2px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 16px; /* 16px stops iPhone from zooming in on tap */
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .pullup-row select {
+            -webkit-appearance: none;
+            appearance: none;
+            padding-right: 26px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='2'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+        }
+
+        /* Hide desktop up/down arrows so "Reps" isn't cut off */
+        .pullup-row input::-webkit-outer-spin-button,
+        .pullup-row input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .pullup-row input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .pullup-row input:focus,
+        .pullup-row select:focus {
+            outline: none;
+            border-color: var(--button-primary);
+        }
         
         .submit-btn {
             width: 100%;
@@ -860,6 +912,16 @@
             .set-row span {
                 font-size: 14px;
             }
+
+            /* NEW (Phase 5): Pull-up rows on iPhone */
+            .pullup-row {
+                grid-template-columns: 46px 64px 1fr 45px;
+                gap: 6px;
+            }
+
+            .pullup-row span {
+                font-size: 14px;
+            }
         }
         /* ============================================================================
            WORKOUT FLASHBACK STYLES
@@ -1111,6 +1173,14 @@
                 <button class="clear-sets-btn" onclick="clearAllSets()">🗑️ Clear All Sets</button>
             </div>
 
+            <!-- NEW (Phase 5): Pull-Ups Unassisted input — reps + grip for each set (hidden by default) -->
+            <div id="repsGripInput" class="hidden">
+                <div id="repsGripSetInputs" class="set-inputs"></div>
+
+                <button class="add-set-btn" onclick="addRepsGripSet()">+ Add Another Set</button>
+                <button class="clear-sets-btn" onclick="clearAllRepsGripSets()">🗑️ Clear All Sets</button>
+            </div>
+
             <!-- Cardio Input -->
             <div id="cardioInput" class="cardio-form hidden">
                 <div id="norwegianRoundsField" class="hidden" style="margin-bottom: 15px;">
@@ -1280,6 +1350,13 @@
 
         // NEW: Default bodyweight (user updated 185 → 180)
         const DEFAULT_BODYWEIGHT = 180;
+
+        // NEW (Phase 5): Pull-Ups Unassisted logs reps + grip per set (instead of weight)
+        // Sheet rows: D = reps, E = bodyweight, F = grip. Grip names must stay exactly as below —
+        // the app only reads a pull-up row as "new style" when column F matches one of these.
+        const PULLUP_EXERCISE = 'Pull-Ups Unassisted';
+        const PULLUP_GRIPS = ['Palms Out', 'Palms In', 'Neutral'];
+        const DEFAULT_GRIP = 'Palms Out';
 
         // State
         let currentDate = new Date();
@@ -1505,6 +1582,23 @@
                         };
                     }
                     
+                    // NEW (Phase 5): New-style Pull-Ups Unassisted row = whole-number reps in D AND a known grip in F.
+                    // Old pull-up rows never have both, so they fall through to the original logic untouched.
+                    const pullupRepsText = String(reps).trim();
+                    const pullupGripText = String(notes).trim();
+                    if (exercise === PULLUP_EXERCISE &&
+                        /^\d+$/.test(pullupRepsText) && parseInt(pullupRepsText, 10) > 0 &&
+                        PULLUP_GRIPS.includes(pullupGripText)) {
+                        const rowBodyweight = parseFloat(weight) > 0 ? parseFloat(weight) : DEFAULT_BODYWEIGHT;
+                        if (!workoutMap[key].pullupSets) workoutMap[key].pullupSets = [];
+                        workoutMap[key].pullupSets.push({
+                            reps: parseInt(pullupRepsText, 10),
+                            grip: pullupGripText,
+                            bodyweight: rowBodyweight
+                        });
+                        // Bodyweight also goes in sets so set counts (stats, balance) keep working
+                        workoutMap[key].sets.push(rowBodyweight);
+                    } else
                     // Add this set to the array
                     if (weight) {
                         workoutMap[key].sets.push(parseFloat(weight));
@@ -1988,7 +2082,7 @@
                     <div style="background: var(--bg-card); padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid var(--info-text);">
                         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
                             <span style="color: var(--text-primary); font-size: 14px; font-weight: 500;">${pr.exercise}</span>
-                            <span style="color: var(--text-primary); font-size: 16px; font-weight: 700;">${pr.weight} lbs</span>
+                            <span style="color: var(--text-primary); font-size: 16px; font-weight: 700;">${pr.isRepBased ? `${pr.reps} reps <span style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">(${pr.grip})</span>` : `${pr.weight} lbs`}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: var(--text-light); font-size: 12px;">${pr.mostRecentDate}</span>
@@ -2014,7 +2108,35 @@
                 
                 const exercise = workout.exercise;
                 const category = workout.category || 'Other';
-                
+
+                // NEW (Phase 5): Pull-Ups Unassisted PR = most reps in one set (new-style entries only).
+                // Old pull-up rows (weight-only) are skipped for this exercise's PR.
+                if (exercise === PULLUP_EXERCISE) {
+                    (workout.pullupSets || []).forEach(set => {
+                        const pr = prs[exercise];
+                        if (!pr || set.reps > pr.reps) {
+                            prs[exercise] = {
+                                isRepBased: true,
+                                reps: set.reps,
+                                grip: set.grip,
+                                weight: set.reps,
+                                category: category,
+                                mostRecentDate: workout.date,
+                                count: 1,
+                                dates: [workout.date]
+                            };
+                        } else if (set.reps === pr.reps) {
+                            pr.count++;
+                            if (!pr.dates.includes(workout.date)) pr.dates.push(workout.date);
+                            if (new Date(workout.date) >= new Date(pr.mostRecentDate)) {
+                                pr.mostRecentDate = workout.date;
+                                pr.grip = set.grip;
+                            }
+                        }
+                    });
+                    return;
+                }
+
                 // Check each set
                 if (workout.sets && Array.isArray(workout.sets)) {
                     workout.sets.forEach(weight => {
@@ -2138,6 +2260,8 @@
                                 stats.strength.volume += parseFloat(weight) * 8;
                             }
                         });
+                        // NEW (Phase 5): new-style pull-up sets use real reps × bodyweight
+                        stats.strength.volume += pullupVolumeAdjustment(w);
                     }
 
                     // Count exercise frequency
@@ -2404,7 +2528,8 @@
                 // Show cardio form, hide weight form
                 document.getElementById('weightInput').classList.add('hidden');
                 document.getElementById('cardioInput').classList.remove('hidden');
-                
+                document.getElementById('repsGripInput').classList.add('hidden'); // NEW (Phase 5)
+
                 // Clear cardio fields
                 document.getElementById('cardioDuration').value = '';
                 document.getElementById('cardioDistance').value = '';
@@ -2447,11 +2572,30 @@
                     }
                 }, 100);
                 
+            } else if (exercise === PULLUP_EXERCISE) {
+                // NEW (Phase 5): Pull-Ups Unassisted — reps + grip rows instead of weight boxes
+                document.getElementById('weightInput').classList.add('hidden');
+                document.getElementById('cardioInput').classList.add('hidden');
+                document.getElementById('repsGripInput').classList.remove('hidden');
+
+                // Fresh rows: 4 sets, reps empty, grip = Palms Out
+                document.getElementById('repsGripSetInputs').innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    addRepsGripSet();
+                }
+
+                // Focus on first reps box
+                setTimeout(() => {
+                    const firstReps = document.querySelector('#repsGripSetInputs input');
+                    if (firstReps) firstReps.focus();
+                }, 100);
+
             } else {
                 // Show weight form, hide cardio form
                 document.getElementById('weightInput').classList.remove('hidden');
                 document.getElementById('cardioInput').classList.add('hidden');
-                
+                document.getElementById('repsGripInput').classList.add('hidden'); // NEW (Phase 5)
+
                 // Clear weight fields
                 document.getElementById('quickEntry').value = '';
                 document.getElementById('setInputs').innerHTML = '';
@@ -2549,7 +2693,8 @@
                         return {
                             date: entry.date,
                             cardio: false,
-                            sets: entry.sets || []
+                            sets: entry.sets || [],
+                            pullupSets: entry.pullupSets || null  // NEW (Phase 5)
                         };
                     }
                 }).sort((a, b) => {
@@ -2601,6 +2746,18 @@
                             <div class="date">${workout.date}${zone2Badge}</div>
                             <div class="sets">${workout.displayText || 'Workout completed'}</div>
                             ${notesLine}
+                        </div>
+                    `;
+                } else if (Array.isArray(workout.pullupSets) && workout.pullupSets.length > 0) {
+                    // NEW (Phase 5): Pull-ups — reps + grip per set, bodyweight underneath
+                    const totalReps = workout.pullupSets.reduce((sum, s) => sum + s.reps, 0);
+                    const olderSets = workout.sets.length - workout.pullupSets.length;
+                    const olderNote = olderSets > 0 ? ` (+ ${olderSets} older-style set${olderSets === 1 ? '' : 's'})` : '';
+                    html += `
+                        <div class="workout-history-item">
+                            <div class="date">${workout.date}</div>
+                            <div class="sets">${formatPullupSets(workout.pullupSets)}${olderNote}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">${totalReps} total reps @ ${workout.pullupSets[workout.pullupSets.length - 1].bodyweight} lbs bodyweight</div>
                         </div>
                     `;
                 } else {
@@ -2743,6 +2900,11 @@
                 if (ex.sets && ex.sets.length > 0) {
                     exerciseMap[ex.exercise].sets.push(...ex.sets);
                 }
+                // NEW (Phase 5): Carry pull-up reps + grip
+                if (Array.isArray(ex.pullupSets) && ex.pullupSets.length > 0) {
+                    if (!exerciseMap[ex.exercise].pullupSets) exerciseMap[ex.exercise].pullupSets = [];
+                    exerciseMap[ex.exercise].pullupSets.push(...ex.pullupSets);
+                }
             });
 
             // Render each exercise
@@ -2768,7 +2930,12 @@
                     }
                 } else {
                     // Strength display
-                    if (exercise.sets.length > 0) {
+                    if (Array.isArray(exercise.pullupSets) && exercise.pullupSets.length > 0) {
+                        // NEW (Phase 5): Pull-ups — reps + grip per set
+                        const olderSets = exercise.sets.length - exercise.pullupSets.length;
+                        dataDisplay = formatPullupSets(exercise.pullupSets) +
+                            (olderSets > 0 ? ` (+ ${olderSets} older-style set${olderSets === 1 ? '' : 's'})` : '');
+                    } else if (exercise.sets.length > 0) {
                         dataDisplay = `${exercise.sets.length} sets @ ${exercise.sets.join('/')}`;
                     } else {
                         dataDisplay = 'Completed';
@@ -2858,6 +3025,85 @@
             addSetRow('');
         }
 
+        // ============================================================================
+        // NEW (Phase 5): PULL-UPS UNASSISTED — REPS + GRIP ROWS
+        // ============================================================================
+
+        function addRepsGripSet(reps = '', grip = DEFAULT_GRIP) {
+            const container = document.getElementById('repsGripSetInputs');
+            const row = document.createElement('div');
+            row.className = 'pullup-row';
+
+            const label = document.createElement('span');
+
+            const repsInput = document.createElement('input');
+            repsInput.type = 'number';
+            repsInput.min = '0';
+            repsInput.step = '1';
+            repsInput.inputMode = 'numeric';
+            repsInput.placeholder = 'Reps';
+            repsInput.value = reps;
+
+            const gripSelect = document.createElement('select');
+            PULLUP_GRIPS.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g;
+                option.textContent = g;
+                gripSelect.appendChild(option);
+            });
+            gripSelect.value = PULLUP_GRIPS.includes(grip) ? grip : DEFAULT_GRIP;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-secondary';
+            removeBtn.textContent = '✕';
+            // Each ✕ is tied to its own row, so it always removes the row you tapped
+            removeBtn.onclick = () => removeRepsGripSet(row);
+
+            row.append(label, repsInput, gripSelect, removeBtn);
+            container.appendChild(row);
+            renumberRepsGripSets();
+        }
+
+        function removeRepsGripSet(row) {
+            row.remove();
+            renumberRepsGripSets();
+        }
+
+        function renumberRepsGripSets() {
+            document.querySelectorAll('#repsGripSetInputs .pullup-row').forEach((row, index) => {
+                row.querySelector('span').textContent = `Set ${index + 1}`;
+            });
+        }
+
+        function clearAllRepsGripSets() {
+            document.querySelectorAll('#repsGripSetInputs .pullup-row').forEach(row => {
+                row.querySelector('input').value = '';
+                row.querySelector('select').value = DEFAULT_GRIP;
+            });
+            const firstReps = document.querySelector('#repsGripSetInputs input');
+            if (firstReps) firstReps.focus();
+        }
+
+        // "Set 1: 6 Palms Out, Set 2: 5 Neutral"
+        function formatPullupSets(pullupSets) {
+            return pullupSets.map((set, i) => `Set ${i + 1}: ${set.reps} ${set.grip}`).join(', ');
+        }
+
+        // Volume uses 8 reps per set everywhere else. For new-style pull-up sets, swap that
+        // estimate for the real number: reps × bodyweight (instead of bodyweight × 8).
+        function pullupVolumeAdjustment(workout) {
+            if (!workout || !Array.isArray(workout.pullupSets)) return 0;
+            return workout.pullupSets.reduce((total, set) => {
+                const bw = parseFloat(set.bodyweight) || DEFAULT_BODYWEIGHT;
+                return total + (set.reps * bw) - (bw * 8);
+            }, 0);
+        }
+
+        // ============================================================================
+        // END PULL-UPS UNASSISTED
+        // ============================================================================
+
         function addSetRow(weight = '') {
             setCounter++;
             const setInputs = document.getElementById('setInputs');
@@ -2892,7 +3138,9 @@
                     label.textContent = `Set ${index + 1}`;
                 }
                 if (button) {
-                    button.onclick = () => removeSet(setCounter);
+                    // FIX (Phase 5 / item 7): capture this row's number so ✕ removes the row you tapped
+                    const rowNumber = setCounter;
+                    button.onclick = () => removeSet(rowNumber);
                 }
             });
         }
@@ -2951,6 +3199,45 @@
                     norwegian: isNorwegian
                 });
                 
+            } else if (selectedExercise === PULLUP_EXERCISE) {
+                // NEW (Phase 5): Pull-Ups Unassisted — collect reps + grip for each row
+                const pullupSets = [];
+                document.querySelectorAll('#repsGripSetInputs .pullup-row').forEach(row => {
+                    const repsText = row.querySelector('input').value.trim();
+                    const reps = Math.round(Number(repsText));
+                    // Skip rows left blank (or 0 / not a number)
+                    if (repsText === '' || !Number.isFinite(reps) || reps <= 0) return;
+                    const gripValue = row.querySelector('select').value;
+                    pullupSets.push({
+                        reps: reps,
+                        grip: PULLUP_GRIPS.includes(gripValue) ? gripValue : DEFAULT_GRIP
+                    });
+                });
+
+                if (pullupSets.length === 0) {
+                    showSubmitMessage('❌ Enter reps for at least one set', 'error');
+                    return;
+                }
+
+                const bodyweightValue = parseFloat(document.getElementById('bodyweightInput').value);
+                const bodyweight = bodyweightValue > 0 ? bodyweightValue : DEFAULT_BODYWEIGHT;
+                pullupSets.forEach(set => set.bodyweight = bodyweight);
+
+                workoutData = {
+                    date: formatDateForSheet(currentDate),
+                    exercise: selectedExercise,
+                    category: 'Back',
+                    pullupSets: pullupSets,
+                    bodyweight: bodyweight
+                };
+
+                todaysWorkouts.push({
+                    exercise: selectedExercise,
+                    sets: pullupSets.map(() => bodyweight.toString()), // keeps set counts working
+                    displaySets: ['bodyweight'],                        // delete prompt reads "N sets (bodyweight)"
+                    pullupSets: pullupSets
+                });
+
             } else {
                 // Weight training - check individual boxes FIRST, then quick entry
                 const inputs = Array.from(document.querySelectorAll('#setInputs input'));
@@ -3059,6 +3346,7 @@
                     document.getElementById('previousData').classList.add('hidden');
                     document.getElementById('quickEntry').value = '';
                     document.getElementById('setInputs').innerHTML = '';
+                    document.getElementById('repsGripSetInputs').innerHTML = ''; // NEW (Phase 5)
                     document.getElementById('exerciseGrid').classList.add('hidden');
                     selectedExercise = null;
                     setCounter = 0;
@@ -3132,6 +3420,25 @@
                         workoutData.zone_2 || 'No',    // Column L: Zone_2
                         workoutData.norwegian_sprints || 'No'  // Column M: Norwegian_Sprints
                     ]);
+                } else if (workoutData.pullupSets) {
+                    // NEW (Phase 5): One row per pull-up set — D = reps, E = bodyweight, F = grip
+                    workoutData.pullupSets.forEach(set => {
+                        rows.push([
+                            workoutData.date,               // Column A: Date
+                            workoutData.exercise,           // Column B: Exercise
+                            '1',                            // Column C: Sets (always 1 per row)
+                            set.reps.toString(),            // Column D: Reps
+                            workoutData.bodyweight.toString(), // Column E: Weight (bodyweight)
+                            set.grip,                       // Column F: Notes (grip)
+                            workoutData.category,           // Column G: Category
+                            '',                             // Column H: Distance
+                            '',                             // Column I: Duration
+                            '',                             // Column J: Calories
+                            '',                             // Column K: Speed_Pace
+                            '',                             // Column L: Zone_2
+                            ''                              // Column M: Norwegian_Sprints
+                        ]);
+                    });
                 } else {
                     // Multiple rows for strength training (one per set)
                     workoutData.sets.forEach(weight => {
@@ -3249,10 +3556,25 @@
                     `;
                 }
                 
+                // NEW (Phase 5): Pull-ups show reps + grip for each set
+                if (Array.isArray(workout.pullupSets) && workout.pullupSets.length > 0) {
+                    return `
+                        <div class="workout-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>${workout.exercise}</strong>
+                                <span>${formatPullupSets(workout.pullupSets)}</span>
+                            </div>
+                            <button onclick="confirmDeleteExercise(${index})" class="delete-btn">
+                                🗑️
+                            </button>
+                        </div>
+                    `;
+                }
+
                 // Weight training workout
                 const displaySets = workout.displaySets || workout.sets;
                 const setCount = workout.sets.length;
-                
+
                 // If all bodyweight, show "4 sets"
                 if (displaySets.length === 1 && displaySets[0] === 'bodyweight') {
                     return `
@@ -3300,6 +3622,8 @@
                             totalVolume += parseFloat(weight) * 8; // 8 reps per set
                         }
                     });
+                    // NEW (Phase 5): pull-ups use real reps × bodyweight
+                    totalVolume += pullupVolumeAdjustment(workout);
                 }
             });
             
@@ -3593,6 +3917,12 @@
                     setValues: setValues,
                     setCount: setValues.length
                 };
+                // NEW (Phase 5): Also save pull-up rows (reps + grip) and the bodyweight box
+                formData.pullupRows = Array.from(document.querySelectorAll('#repsGripSetInputs .pullup-row')).map(row => ({
+                    reps: row.querySelector('input').value,
+                    grip: row.querySelector('select').value
+                }));
+                formData.bodyweight = document.getElementById('bodyweightInput').value;
             }
             
             const state = {
@@ -3637,8 +3967,20 @@
                 // NEW: Restore exercise selection and form data
                 if (selectedExercise && selectedCategory) {
                     // Re-select the category to show exercises
-                    showCategory(selectedCategory);
-                    
+                    // FIX (Phase 5): showCategory() reads the tap event, which doesn't exist here, so it threw
+                    // and this whole restore was skipped. The exercise grid is already built before that line,
+                    // so we just catch the error and highlight the category button ourselves.
+                    try {
+                        showCategory(selectedCategory);
+                    } catch (e) {
+                        console.log('ℹ️ Category re-selected without a tap event');
+                    }
+                    document.querySelectorAll('.category-btn').forEach(btn => {
+                        if ((btn.getAttribute('onclick') || '').includes(`'${selectedCategory}'`)) {
+                            btn.classList.add('active');
+                        }
+                    });
+
                     // Wait briefly for UI to render, then restore exercise and form
                     setTimeout(() => {
                         // Find and click the exercise button to trigger proper selection
@@ -3655,13 +3997,36 @@
                         
                         // Show appropriate form (cardio vs strength)
                         const isCardio = selectedCategory === 'Cardio';
+                        // NEW (Phase 5): Bodyweight box for BW exercises (pull-ups, push-ups, etc.)
+                        const bwField = document.getElementById('bodyweightField');
+                        if (!isCardio && BW_EXERCISES.includes(selectedExercise)) {
+                            bwField.classList.remove('hidden');
+                            const savedBW = state.formData && state.formData.bodyweight;
+                            document.getElementById('bodyweightInput').value = savedBW || DEFAULT_BODYWEIGHT;
+                        } else {
+                            bwField.classList.add('hidden');
+                        }
+
                         if (isCardio) {
                             document.getElementById('weightInput').classList.add('hidden');
                             document.getElementById('cardioInput').classList.remove('hidden');
+                            document.getElementById('repsGripInput').classList.add('hidden'); // NEW (Phase 5)
+                        } else if (selectedExercise === PULLUP_EXERCISE) {
+                            // NEW (Phase 5): Rebuild pull-up rows with what was typed (or 4 fresh rows)
+                            document.getElementById('cardioInput').classList.add('hidden');
+                            document.getElementById('weightInput').classList.add('hidden');
+                            document.getElementById('repsGripInput').classList.remove('hidden');
+                            document.getElementById('repsGripSetInputs').innerHTML = '';
+                            const savedRows = (state.formData && Array.isArray(state.formData.pullupRows) && state.formData.pullupRows.length > 0)
+                                ? state.formData.pullupRows
+                                : [{}, {}, {}, {}];
+                            savedRows.forEach(r => addRepsGripSet(r.reps || '', r.grip || DEFAULT_GRIP));
+                            console.log('✅ Restored', savedRows.length, 'pull-up rows');
                         } else {
                             document.getElementById('cardioInput').classList.add('hidden');
                             document.getElementById('weightInput').classList.remove('hidden');
-                            
+                            document.getElementById('repsGripInput').classList.add('hidden'); // NEW (Phase 5)
+
                             // Restore set input values for strength exercises
                             if (state.formData && state.formData.setValues && state.formData.setValues.length > 0) {
                                 const setInputsContainer = document.getElementById('setInputs');
@@ -3674,6 +4039,12 @@
                                 });
                                 
                                 console.log('✅ Restored', state.formData.setValues.length, 'set values');
+                            }
+                            // NEW (Phase 5): BW exercises — boxes mean "additional lbs", same as a fresh selection
+                            if (BW_EXERCISES.includes(selectedExercise)) {
+                                document.querySelectorAll('#setInputs input[type="number"]').forEach(input => {
+                                    input.placeholder = 'Additional lbs (optional)';
+                                });
                             }
                         }
                         
